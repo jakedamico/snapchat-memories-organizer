@@ -131,9 +131,12 @@ def to_local(dt_utc, tzinfo):
     tzinfo None means "this machine's zone, resolved per date". That matters:
     a fixed offset taken from today would put every winter memory an hour late,
     because the offset in January is not the offset in July.
+
+    The result is always offset-aware, so the EXIF writer can record which
+    offset the wall-clock time belongs to.
     """
     if tzinfo is None:
-        return datetime.fromtimestamp(dt_utc.timestamp())
+        return dt_utc.astimezone()
     return dt_utc.astimezone(tzinfo)
 
 
@@ -429,6 +432,16 @@ def write_photo_metadata(path, dt_local, lat, lon):
         ex["0th"][piexif.ImageIFD.DateTime] = stamp
         ex["Exif"][piexif.ExifIFD.DateTimeOriginal] = stamp
         ex["Exif"][piexif.ExifIFD.DateTimeDigitized] = stamp
+        # Without an offset, readers guess the zone: Immich takes it from GPS
+        # (wrong when abroad) or assumes UTC when there is no GPS.
+        off = dt_local.utcoffset()
+        if off is not None:
+            mins = int(off.total_seconds() // 60)
+            offset = ("%s%02d:%02d" % ("-" if mins < 0 else "+",
+                                       abs(mins) // 60, abs(mins) % 60)).encode()
+            ex["Exif"][piexif.ExifIFD.OffsetTime] = offset
+            ex["Exif"][piexif.ExifIFD.OffsetTimeOriginal] = offset
+            ex["Exif"][piexif.ExifIFD.OffsetTimeDigitized] = offset
         if lat is not None and lon is not None:
             ex["GPS"] = {
                 piexif.GPSIFD.GPSLatitudeRef: (b"N" if lat >= 0 else b"S"),

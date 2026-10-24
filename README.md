@@ -213,7 +213,7 @@ Do not trust a "0 errors" summary. It only means nothing threw.
 - **Each file's modification time should equal the time in its own filename.** This is what catches landmine #3, and nothing else does.
 - Every original video should display at the same dimensions as its source — confirms the rotation flag survived the remux.
 - Read the `matched` column of `_report.csv`, every row — this is what catches landmine #8. Then look at each non-exact row's source file and ask why.
-- Check EXIF `DateTimeOriginal` and GPS against `_report.csv` — for every photo, not a sample; it's a few seconds.
+- Check EXIF `DateTimeOriginal`, `OffsetTimeOriginal` and GPS against `_report.csv` — for every photo, not a sample; it's a few seconds. `DateTimeOriginal` minus the offset should equal `date_utc`.
 
 **By eye — have the person check both ends of the timeline:**
 
@@ -236,6 +236,7 @@ Do not trust a "0 errors" summary. It only means nothing threw.
 | Photos with no caption applied | Check `_report.csv` `has_overlay` — the export may genuinely have no overlay |
 | `--tz` fails with `ZoneInfoNotFoundError` | Windows has no IANA database: `pip install tzdata` |
 | A few `mtime-loose` / `NO-JSON-MATCH` rows | Landmine #8 — inspect those rows' source filenames |
+| Photos hours off in Immich, but only those without GPS or taken abroad | EXIF written without `OffsetTimeOriginal` by an older version — re-run with `--force` |
 
 ---
 
@@ -243,6 +244,7 @@ Do not trust a "0 errors" summary. It only means nothing threw.
 
 - Only merged videos are re-encoded (unavoidable when burning in an overlay), at CRF 18. Videos without overlays and all originals are stream-copied, losing no quality.
 - Video `creation_time` is written in UTC, per the MP4 spec. Photo EXIF is written in local time, per the EXIF spec. They are supposed to differ.
+- Photo EXIF also carries `OffsetTimeOriginal` (e.g. `+02:00`), so the local time is unambiguous. Without it, readers have to guess the zone: Immich takes it from the GPS position (wrong for photos taken abroad, since the time is in *your* zone) and assumes UTC when there is no GPS. On one 1,072-memory export that put 113 photos 1–3 hours off on the timeline.
 - AR lenses and face filters were applied at capture and live in the base media, so they appear in both copies.
 - The tool never deletes or modifies your export. It only reads from it.
 
